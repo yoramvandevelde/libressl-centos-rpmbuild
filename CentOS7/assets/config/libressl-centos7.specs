@@ -1,0 +1,374 @@
+# Builds in mock in CentOS 7
+#  dev package conflicts with openssl-dev - intentional
+#  A system should not have both dev packages installed together
+# man3 pages in own sub-package
+#  dev package usually only installed by build system. Keeping
+#  man pages separate avoids possible name conflict with man
+#  pages from other dev packages, man pages not needed in build
+#  system
+# openssl binary renamed to libressl
+#  allows parallel install with vendor openssl without weird
+#  paths or confusion. Man page also renamed.
+# RPM spec file only tested in CentOS 7 x86_64
+
+%define ssldir %{_sysconfdir}/pki/tls
+
+Name:		libressl
+Version:	2.5.5
+Release:	BUILDVERSION
+Summary:	OpenBSD fork of the OpenSSL Cryptography Suite
+
+BuildRoot:      /root/rpmbuild/BUILD/libressl-DISTVERSION
+Group:		System Environment/Libraries
+License:	OpenSSL
+URL:		http://www.libressl.org/
+Source0:	http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-%{version}.tar.gz
+Source1:	libressl-awel-additions.cnf
+# some DH params
+#2048
+Source2:	https://bettercrypto.org/static/dhparams/group14.pem
+#3072
+Source3:	https://bettercrypto.org/static/dhparams/group15.pem
+#4096
+Source4:	https://bettercrypto.org/static/dhparams/group16.pem
+#6144
+Source5:	https://bettercrypto.org/static/dhparams/group17.pem
+#8192
+Source6:	https://bettercrypto.org/static/dhparams/group18.pem
+# weak 1024 for compat
+Source7:	dh1024.pem
+# DHE README
+Source8:	README.DHE.md
+
+Patch90:	libressl-2.5.5-cnf-name.patch
+Patch91:	libressl-2.5.5-man1-libressl.patch
+#Patch92:	libressl-2.3.2-man3-libressl.patch
+Patch93:	libressl-2.5.5-eccurves_default.patch
+
+BuildRequires:	%{_bindir}/chrpath
+Requires:	%{name}-libs = %{version}-%{release}
+
+#From the README.md
+%description
+LibreSSL is a fork of OpenSSL 1.0.1g developed by the OpenBSD project.
+Our goal is to modernize the codebase, improve security, and apply best
+practice development processes from OpenBSD.
+
+%package libs
+Summary:	Shared Libraries for LibreSSL
+Group:		System Environment/Libraries
+Requires:	ca-certificates >= 2008-5
+
+#After first line is from the README.md
+%description libs
+This package provides the shared libraries for LibreSSL.
+
+LibreSSL is API compatible with OpenSSL 1.0.1, but does not yet include all
+new APIs from OpenSSL 1.0.2 and later. LibreSSL also includes APIs not yet
+present in OpenSSL. The current common API subset is OpenSSL 1.0.1.
+
+LibreSSL it is not ABI compatible with any release of OpenSSL, or necessarily
+earlier releases of LibreSSL. You will need to relink your programs to
+LibreSSL in order to use it, just as in moving between major versions of
+OpenSSL.
+
+LibreSSL's installed library version numbers are incremented to account for
+ABI and API changes.
+
+%package devel
+Summary:	Developer files for LibreSSL
+Group:		Development/Libraries
+Requires:	%{name}-libs = %{version}-%{release}
+Conflicts:	openssl-devel
+
+%description devel
+This package provides the development header files for LibreSSL.
+
+%package devel-manpages
+Summary:	Developer manual pages
+Group:		Documentation
+BuildArch:	noarch
+
+%description devel-manpages
+This package provides the developer man3 pages.
+
+%package static
+Summary:	Static libraries for LibreSSL
+Group:		Development/Libraries
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description static
+This package provides the LibreSSL static libraries.
+
+%package compat-openssl
+Summary:	Compatability package for systems without OpenSSL
+Group:		System Environment/Utilities
+Requires:	%{name} = %{version}-%{release}
+Conflicts:	openssl
+
+%description compat-openssl
+This package provides a synlink for the openssl binary, configuration file, and
+the man page. It is intended for systems where OpenSSL has been completely
+removed.
+
+%prep
+%setup -q
+cp %{SOURCE8} .
+%patch90 -p1
+%patch91 -p1
+#%%patch92 -p1
+%patch93 -p1
+cd apps/openssl
+mv openssl.1 libressl.1
+cd ../..
+
+%build
+%configure \
+  --with-openssldir=%{ssldir}
+
+# fails biotest \
+#  --enable-extratests
+
+##%% from RHEL/CentOS OpenSSL spec file ##%%
+# Add -Wa,--noexecstack here so that libcrypto's assembler modules will be
+# marked as not requiring an executable stack.
+# Also add -DPURIFY to make using valgrind with openssl easier as we do not
+# want to depend on the uninitialized memory as a source of entropy anyway.
+RPM_OPT_FLAGS="$RPM_OPT_FLAGS -Wa,--noexecstack -DPURIFY"
+
+make %{?_smp_mflags}
+
+%check
+
+make check
+
+%install
+make install DESTDIR=%{buildroot}
+rm -f %{buildroot}%{_libdir}/*.la
+rm -f %{buildroot}%{ssldir}/cert.pem
+install -d %{buildroot}%{ssldir}/csr
+install -d %{buildroot}%{ssldir}/cert_bundle
+
+#rename openssl binary
+mv %{buildroot}%{_bindir}/openssl %{buildroot}%{_bindir}/libressl
+ln -sf libressl %{buildroot}%{_bindir}/openssl
+ln -sf libressl.1.gz %{buildroot}%{_mandir}/man1/openssl.1.gz
+
+#customize conf
+cat %{SOURCE1} >> %{buildroot}%{_sysconfdir}/pki/tls/libressl.cnf
+ln -sf libressl.cnf %{buildroot}%{_sysconfdir}/pki/tls/openssl.cnf
+
+#MODP IKE
+install -p -m644 %{SOURCE2} %{buildroot}%{_sysconfdir}/pki/tls/MODP-IKE-2048-group14.pem
+install -p -m644 %{SOURCE3} %{buildroot}%{_sysconfdir}/pki/tls/MODP-IKE-3072-group15.pem
+install -p -m644 %{SOURCE4} %{buildroot}%{_sysconfdir}/pki/tls/MODP-IKE-4096-group16.pem
+install -p -m644 %{SOURCE5} %{buildroot}%{_sysconfdir}/pki/tls/MODP-IKE-6144-group17.pem
+install -p -m644 %{SOURCE6} %{buildroot}%{_sysconfdir}/pki/tls/MODP-IKE-8192-group18.pem
+
+# initial parameters
+install -p -m644 %{SOURCE7} %{buildroot}%{_sysconfdir}/pki/tls/dh1024.pem
+install -p -m644 %{SOURCE2} %{buildroot}%{_sysconfdir}/pki/tls/dh2048.pem
+install -p -m644 %{SOURCE3} %{buildroot}%{_sysconfdir}/pki/tls/dh3072.pem
+install -p -m644 %{SOURCE4} %{buildroot}%{_sysconfdir}/pki/tls/dh4096.pem
+
+# readme
+install -p -m644 %{SOURCE8} %{buildroot}%{_sysconfdir}/pki/tls/README.DHE.md
+
+#mv %%{buildroot}%%{_mandir}/man1/openssl.1 %%{buildroot}%%{_mandir}/man1/libressl.1
+cat <<EOF > README.rpm
+The compiled binary openssl has been renamed to libressl to avoid conflicts
+with the distribution supplied openssl binary.
+EOF
+
+#fix permissions
+chmod 755 %{buildroot}%{_libdir}/libcrypto.so.41.0.1
+chmod 755 %{buildroot}%{_libdir}/libssl.so.43.0.2
+chmod 755 %{buildroot}%{_libdir}/libtls.so.15.0.4
+
+#DH parameter generation cronjobs
+mkdir -p %{buildroot}%{_sysconfdir}/cron.daily
+mkdir -p %{buildroot}%{_sysconfdir}/cron.monthy
+cat <<EOF > %{buildroot}%{_sysconfdir}/cron.daily/generate_dh_params.sh
+#!/bin/bash
+TMPFILE="\`%{_bindir}/mktemp -p /tmp dhparams.XXXXXXXXXX\`"
+
+trap "rm -f \${TMPFILE}" EXIT TERM
+
+%{_bindir}/nice -n19 %{_bindir}/libressl dhparam -out \${TMPFILE} 1024 > /dev/null 2>&1
+if [ \$? -eq 0 ]; then
+  cat \${TMPFILE} > %{_sysconfdir}/pki/tls/dh1024.pem
+fi
+%{_bindir}/nice -n19 %{_bindir}/libressl dhparam -out \${TMPFILE} 2048 > /dev/null 2>&1
+if [ \$? -eq 0 ]; then
+  cat \${TMPFILE} > %{_sysconfdir}/pki/tls/dh2048.pem
+fi
+EOF
+cat <<EOF > %{buildroot}%{_sysconfdir}/cron.monthy/generate_dh_params.sh
+#!/bin/bash
+TMPFILE="\`%{_bindir}/mktemp -p /tmp dhparams.XXXXXXXXXX\`"
+
+trap "rm -f \${TMPFILE}" EXIT TERM
+
+%{_bindir}/nice -n19 %{_bindir}/libressl dhparam -out \${TMPFILE} 3072 > /dev/null 2>&1
+if [ \$? -eq 0 ]; then
+  cat \${TMPFILE} > %{_sysconfdir}/pki/tls/dh3072.pem
+fi
+%{_bindir}/nice -n19 %{_bindir}/libressl dhparam -out \${TMPFILE} 4096 > /dev/null 2>&1
+if [ \$? -eq 0 ]; then
+  cat \${TMPFILE} > %{_sysconfdir}/pki/tls/dh4096.pem
+fi
+EOF
+
+#fix rpath
+%{_bindir}/chrpath -d %{buildroot}%{_bindir}/libressl
+%{_bindir}/chrpath -d %{buildroot}%{_bindir}/ocspcheck
+%{_bindir}/chrpath -d %{buildroot}%{_libdir}/libcrypto.so.41.0.1
+%{_bindir}/chrpath -d %{buildroot}%{_libdir}/libssl.so.43.0.2
+%{_bindir}/chrpath -d %{buildroot}%{_libdir}/libtls.so.15.0.4
+
+%clean
+rm -rf %{buildroot}
+
+%post libs -p /sbin/ldconfig
+
+%postun libs -p /sbin/ldconfig
+
+%files
+%defattr(-,root,root,-)
+%{_bindir}/libressl
+%{_bindir}/ocspcheck
+%attr(0755,root,root) %{_sysconfdir}/cron.daily/generate_dh_params.sh
+%attr(0755,root,root) %{_sysconfdir}/cron.monthy/generate_dh_params.sh
+%{_mandir}/man1/libressl.*
+%doc COPYING VERSION README.rpm
+%license COPYING
+
+%files libs
+%defattr(-,root,root,-)
+%dir %{ssldir}/certs
+%dir %{ssldir}/csr
+%dir %{ssldir}/cert_bundle
+%{_libdir}/lib*.so.*
+%attr(0644,root,root) %config(noreplace) %{ssldir}/libressl.cnf
+%attr(0644,root,root) %config(noreplace) %{ssldir}/x509v3.cnf
+%attr(0644,root,root) %config(noreplace) %{ssldir}/dh1024.pem
+%attr(0644,root,root) %config(noreplace) %{ssldir}/dh2048.pem
+%attr(0644,root,root) %config(noreplace) %{ssldir}/dh3072.pem
+%attr(0644,root,root) %config(noreplace) %{ssldir}/dh4096.pem
+# MODP IKE
+%attr(0644,root,root) %{ssldir}/MODP-IKE-2048-group14.pem
+%attr(0644,root,root) %{ssldir}/MODP-IKE-3072-group15.pem
+%attr(0644,root,root) %{ssldir}/MODP-IKE-4096-group16.pem
+%attr(0644,root,root) %{ssldir}/MODP-IKE-6144-group17.pem
+%attr(0644,root,root) %{ssldir}/MODP-IKE-8192-group18.pem
+# DHE README
+%attr(0644,root,root) %{ssldir}/README.DHE.md
+%doc COPYING README.DHE.md VERSION
+%license COPYING
+
+%files devel
+%defattr(-,root,root,-)
+%{_includedir}/tls.h
+%{_includedir}/openssl/*.h
+%{_libdir}/*.so
+%{_prefix}/%{_lib}/pkgconfig/*.pc
+%doc COPYING README.md ChangeLog VERSION
+%license COPYING
+
+%files devel-manpages
+%defattr(-,root,root,-)
+%{_mandir}/man3/*
+%doc COPYING VERSION
+%license COPYING
+
+%files static
+%defattr(-,root,root,-)
+%{_libdir}/*.a
+%doc COPYING VERSION
+%license COPYING
+
+%files compat-openssl
+%defattr(-,root,root,-)
+%{_bindir}/openssl
+%{_sysconfdir}/pki/tls/openssl.cnf
+%{_mandir}/man1/openssl.1.gz
+
+%changelog
+* Thu Sep 28 2017 Alice Wonder <buildmaster@librelamp.com> 2.5.5-2.1
+- Change default ECC curves
+
+* Mon Sep 25 2017 Alice Wonder <buildmaster@librelamp.com> 2.5.5-1
+- Update to 2.5.5
+
+* Wed Feb 01 2017 Alice Wonder <buildmaster@librelamp.com> 2.4.5-1
+- Update to 2.4.5
+
+* Sat Dec 10 2016 Alice Wonder <buildmaster@librelamp.com> 2.4.4-3
+- Mass rebuild for CentOS 7.3 rebase
+- Move cron.weekly script into cron.monthly
+
+* Fri Nov 11 2016 Alice Wonder <buildmaster@librelamp.com> 2.4.4-2
+- install the MODP IKE DH groups
+
+* Mon Nov 07 2016 Alice Wonder <buildmaster@librelamp.com> 2.4.4-1
+- Update to 2.4.4
+
+* Tue Sep 27 2016 Alice Wonder <buildmaster@librelamp.com> 2.4.3-1
+- Update to 2.4.3
+
+* Sat Aug 06 2016 Alice Wonder <buildmaster@librelamp.com> 2.4.2-2
+- Added compat-openssl package
+
+* Tue Aug 02 2016 Alice Wonder <buildmaster@librelamp.com> 2.4.2-1
+- Update to 2.4.2
+
+* Thu Jul 07 2016 Alice Wonder <buildmaster@librelamp.com> 2.3.6-1
+- Update to 2.3.6
+
+* Tue May 03 2016 Alice Wonder <buildmaster@librelamp.com> 2.3.4-1
+- Update to 2.3.4
+
+* Wed Mar 23 2016 Alice Wonder <buildmaster@librelamp.com> 2.3.3-1
+- Update to 2.3.3
+
+* Sun Feb 21 2016 Alice Wonder <buildmaster@librelamp.com> 2.3.2-1
+- Update to 2.3.2
+
+* Wed Jan 06 2016 Alice Wonder <buildmaster@librelamp.com> 2.3.1-2
+- Don't apply disable ssl2 handshake patch
+
+* Thu Nov 19 2015 Alice Wonder <buildmaster@librelamp.com> 2.3.1-1
+- Update to 2.3.1
+
+* Sat Oct 03 2015 Alice Wonder <buildmaster@librelamp.com> 2.3.0-1
+- Update to 2.3.0
+
+* Wed Sep 09 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.3-3
+- cron script to daily generate fresh DH Parameters
+
+* Fri Sep 04 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.3-2
+- Patch to disable SSL2 handshake
+
+* Sun Aug 30 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.3-1
+- Update to 2.2.3
+
+* Wed Aug 12 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.2-2
+- add /etc/pki/tls/{csr,cert_bundle}
+
+* Fri Aug 07 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.2-1
+- Build against official release tarball
+- libressl.1 man page fixes
+
+* Thu Aug 06 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.2-0.1.test
+- fix libressl.cnf so it works with mod_ssl post scriptlet
+
+* Wed Aug 05 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.2-0.0.test
+- fix libressl.1 man page to refer to libressl as the binary
+- patch to use libressl.conf as default configuration file.
+
+* Tue Aug 04 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.1-1.1
+- don't use own sub-directiory of _libdir
+
+* Mon Aug 03 2015 Alice Wonder <buildmaster@librelamp.com> 2.2.1-1
+- Initial spec file
+

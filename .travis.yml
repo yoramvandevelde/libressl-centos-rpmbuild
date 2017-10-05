@@ -1,0 +1,24 @@
+language: python
+python:
+- 2.7
+services:
+- docker
+env:
+  matrix:
+  - OS="CentOS6"
+  - OS="CentOS7"
+install:
+- docker build -t libressl-${OS,,}-rpm-builder:latest ${OS}
+script:
+- docker run -ti --rm -v $PWD/${OS}/data:/data -v $PWD/${OS}/assets/config:/config libressl-${OS,,}-rpm-builder build.sh
+before_install:
+- openssl aes-256-cbc -K $encrypted_8f0689e370c8_key -iv $encrypted_8f0689e370c8_iv -in deploy_rsa.enc -out deploy_rsa -d
+- chmod 600 deploy_rsa
+addons:
+      ssh_known_hosts: packages.savvii.services
+deploy:
+    provider: script
+    skip_cleanup: true
+    script: rsync -r -e 'ssh -i ./deploy_rsa' --delete-after --quiet ${OS}/data/ travis@packages.savvii.services:${OS}/
+    on:
+        branch: master

@@ -1,0 +1,324 @@
+diff -Nur libressl-2.5.5.orig/apps/openssl/apps.c libressl-2.5.5/apps/openssl/apps.c
+--- libressl-2.5.5.orig/apps/openssl/apps.c	2017-07-09 03:59:47.000000000 -0700
++++ libressl-2.5.5/apps/openssl/apps.c	2017-09-25 01:57:24.872236052 -0700
+@@ -1218,7 +1218,7 @@
+ 	const char *t = X509_get_default_cert_area();
+ 	char *p;
+ 
+-	if (asprintf(&p, "%s/openssl.cnf", t) == -1)
++	if (asprintf(&p, "%s/libressl.cnf", t) == -1)
+ 		return NULL;
+ 	return p;
+ }
+diff -Nur libressl-2.5.5.orig/apps/openssl/CMakeLists.txt libressl-2.5.5/apps/openssl/CMakeLists.txt
+--- libressl-2.5.5.orig/apps/openssl/CMakeLists.txt	2017-07-06 22:10:15.000000000 -0700
++++ libressl-2.5.5/apps/openssl/CMakeLists.txt	2017-09-25 01:58:22.845929396 -0700
+@@ -84,5 +84,5 @@
+ else()
+ 	set(CONF_DIR "${CMAKE_INSTALL_PREFIX}/etc/ssl")
+ endif()
+-install(FILES cert.pem openssl.cnf x509v3.cnf DESTINATION ${CONF_DIR})
++install(FILES cert.pem libressl.cnf x509v3.cnf DESTINATION ${CONF_DIR})
+ install(DIRECTORY DESTINATION ${CONF_DIR}/cert)
+diff -Nur libressl-2.5.5.orig/apps/openssl/libressl.cnf libressl-2.5.5/apps/openssl/libressl.cnf
+--- libressl-2.5.5.orig/apps/openssl/libressl.cnf	1969-12-31 16:00:00.000000000 -0800
++++ libressl-2.5.5/apps/openssl/libressl.cnf	2017-07-09 03:59:47.000000000 -0700
+@@ -0,0 +1,24 @@
++[ req ]
++#default_bits		= 2048
++#default_md		= sha256
++#default_keyfile 	= privkey.pem
++distinguished_name	= req_distinguished_name
++attributes		= req_attributes
++
++[ req_distinguished_name ]
++countryName			= Country Name (2 letter code)
++countryName_min			= 2
++countryName_max			= 2
++stateOrProvinceName		= State or Province Name (full name)
++localityName			= Locality Name (eg, city)
++0.organizationName		= Organization Name (eg, company)
++organizationalUnitName		= Organizational Unit Name (eg, section)
++commonName			= Common Name (eg, fully qualified host name)
++commonName_max			= 64
++emailAddress			= Email Address
++emailAddress_max		= 64
++
++[ req_attributes ]
++challengePassword		= A challenge password
++challengePassword_min		= 4
++challengePassword_max		= 20
+diff -Nur libressl-2.5.5.orig/apps/openssl/Makefile.am libressl-2.5.5/apps/openssl/Makefile.am
+--- libressl-2.5.5.orig/apps/openssl/Makefile.am	2017-07-05 20:18:20.000000000 -0700
++++ libressl-2.5.5/apps/openssl/Makefile.am	2017-09-25 02:03:59.917824935 -0700
+@@ -86,7 +86,7 @@
+ noinst_HEADERS += timeouts.h
+ 
+ EXTRA_DIST = cert.pem
+-EXTRA_DIST += openssl.cnf
++EXTRA_DIST += libressl.cnf
+ EXTRA_DIST += x509v3.cnf
+ EXTRA_DIST += CMakeLists.txt
+ 
+@@ -97,7 +97,7 @@
+ 		OPENSSLDIR="$(DESTDIR)$(sysconfdir)/ssl"; \
+ 	fi; \
+ 	mkdir -p "$$OPENSSLDIR/certs"; \
+-	for i in cert.pem openssl.cnf x509v3.cnf; do \
++	for i in cert.pem libressl.cnf x509v3.cnf; do \
+ 		if [ ! -f "$$OPENSSLDIR/$i" ]; then \
+ 			$(INSTALL) -m 644 "$(srcdir)/$$i" "$$OPENSSLDIR/$$i"; \
+ 		else \
+@@ -111,7 +111,7 @@
+ 	else \
+ 		OPENSSLDIR="$(DESTDIR)$(sysconfdir)/ssl"; \
+ 	fi; \
+-	for i in cert.pem openssl.cnf x509v3.cnf; do \
++	for i in cert.pem libressl.cnf x509v3.cnf; do \
+ 		if cmp -s "$$OPENSSLDIR/$$i" "$(srcdir)/$$i"; then \
+ 			rm -f "$$OPENSSLDIR/$$i"; \
+ 		fi \
+diff -Nur libressl-2.5.5.orig/apps/openssl/Makefile.in libressl-2.5.5/apps/openssl/Makefile.in
+--- libressl-2.5.5.orig/apps/openssl/Makefile.in	2017-07-09 04:00:06.000000000 -0700
++++ libressl-2.5.5/apps/openssl/Makefile.in	2017-09-25 02:04:55.476668181 -0700
+@@ -394,7 +394,7 @@
+ 	$(am__append_5) $(am__append_6)
+ noinst_HEADERS = apps.h progs.h s_apps.h testdsa.h testrsa.h \
+ 	timeouts.h
+-EXTRA_DIST = cert.pem openssl.cnf x509v3.cnf CMakeLists.txt
++EXTRA_DIST = cert.pem libressl.cnf x509v3.cnf CMakeLists.txt
+ all: all-am
+ 
+ .SUFFIXES:
+@@ -849,7 +849,7 @@
+ 		OPENSSLDIR="$(DESTDIR)$(sysconfdir)/ssl"; \
+ 	fi; \
+ 	mkdir -p "$$OPENSSLDIR/certs"; \
+-	for i in cert.pem openssl.cnf x509v3.cnf; do \
++	for i in cert.pem libressl.cnf x509v3.cnf; do \
+ 		if [ ! -f "$$OPENSSLDIR/$i" ]; then \
+ 			$(INSTALL) -m 644 "$(srcdir)/$$i" "$$OPENSSLDIR/$$i"; \
+ 		else \
+@@ -863,7 +863,7 @@
+ 	else \
+ 		OPENSSLDIR="$(DESTDIR)$(sysconfdir)/ssl"; \
+ 	fi; \
+-	for i in cert.pem openssl.cnf x509v3.cnf; do \
++	for i in cert.pem libressl.cnf x509v3.cnf; do \
+ 		if cmp -s "$$OPENSSLDIR/$$i" "$(srcdir)/$$i"; then \
+ 			rm -f "$$OPENSSLDIR/$$i"; \
+ 		fi \
+diff -Nur libressl-2.5.5.orig/apps/openssl/openssl.cnf libressl-2.5.5/apps/openssl/openssl.cnf
+--- libressl-2.5.5.orig/apps/openssl/openssl.cnf	2017-07-09 03:59:47.000000000 -0700
++++ libressl-2.5.5/apps/openssl/openssl.cnf	1969-12-31 16:00:00.000000000 -0800
+@@ -1,24 +0,0 @@
+-[ req ]
+-#default_bits		= 2048
+-#default_md		= sha256
+-#default_keyfile 	= privkey.pem
+-distinguished_name	= req_distinguished_name
+-attributes		= req_attributes
+-
+-[ req_distinguished_name ]
+-countryName			= Country Name (2 letter code)
+-countryName_min			= 2
+-countryName_max			= 2
+-stateOrProvinceName		= State or Province Name (full name)
+-localityName			= Locality Name (eg, city)
+-0.organizationName		= Organization Name (eg, company)
+-organizationalUnitName		= Organizational Unit Name (eg, section)
+-commonName			= Common Name (eg, fully qualified host name)
+-commonName_max			= 64
+-emailAddress			= Email Address
+-emailAddress_max		= 64
+-
+-[ req_attributes ]
+-challengePassword		= A challenge password
+-challengePassword_min		= 4
+-challengePassword_max		= 20
+diff -Nur libressl-2.5.5.orig/ChangeLog libressl-2.5.5/ChangeLog
+--- libressl-2.5.5.orig/ChangeLog	2017-07-09 03:57:25.000000000 -0700
++++ libressl-2.5.5/ChangeLog	2017-09-25 02:06:17.938951286 -0700
+@@ -540,7 +540,7 @@
+ 
+ 	* --with-enginesdir is removed as a configuration parameter
+ 
+-	* Default cert.pem, openssl.cnf, and x509v3.cnf files are now
++	* Default cert.pem, libressl.cnf, and x509v3.cnf files are now
+ 	  installed under $sysconfdir/ssl or the directory specified by
+ 	  --with-openssldir. Previous versions of LibreSSL left these empty.
+ 
+diff -Nur libressl-2.5.5.orig/crypto/conf/conf_mod.c libressl-2.5.5/crypto/conf/conf_mod.c
+--- libressl-2.5.5.orig/crypto/conf/conf_mod.c	2017-07-09 03:59:46.000000000 -0700
++++ libressl-2.5.5/crypto/conf/conf_mod.c	2017-09-25 02:11:51.963188306 -0700
+@@ -545,7 +545,7 @@
+ {
+ 	char *file = NULL;
+ 
+-	if (asprintf(&file, "%s/openssl.cnf",
++	if (asprintf(&file, "%s/libressl.cnf",
+ 	    X509_get_default_cert_area()) == -1)
+ 		return (NULL);
+ 	return file;
+diff -Nur libressl-2.5.5.orig/tests/libressl.cnf libressl-2.5.5/tests/libressl.cnf
+--- libressl-2.5.5.orig/tests/libressl.cnf	1969-12-31 16:00:00.000000000 -0800
++++ libressl-2.5.5/tests/libressl.cnf	2017-07-05 20:08:51.000000000 -0700
+@@ -0,0 +1,29 @@
++#	$OpenBSD: openssl.cnf,v 1.1 2014/08/26 17:50:07 jsing Exp $
++
++#
++# SSLeay example configuration file.
++# This is mostly being used for generation of certificate requests.
++#
++# hacked by iang to do DSA certs - Server
++
++RANDFILE              = ./.rnd
++
++####################################################################
++[ req ]
++distinguished_name    = req_distinguished_name
++encrypt_rsa_key               = no
++
++[ req_distinguished_name ]
++countryName                   = Country Name (2 letter code)
++countryName_default           = CA
++countryName_value             = CA
++
++organizationName                = Organization Name (eg, company)
++organizationName_value          = Shake it Vera 
++
++0.commonName                  = Common Name (eg, YOUR name)
++0.commonName_value            = Wastelandus
++
++1.commonName                  = Common Name (eg, YOUR name)
++1.commonName_value            = Maximus
++
+diff -Nur libressl-2.5.5.orig/tests/Makefile.am libressl-2.5.5/tests/Makefile.am
+--- libressl-2.5.5.orig/tests/Makefile.am	2017-07-05 20:18:20.000000000 -0700
++++ libressl-2.5.5/tests/Makefile.am	2017-09-25 02:07:17.977711410 -0700
+@@ -330,7 +330,7 @@
+ # testdsa
+ TESTS += testdsa.sh
+ EXTRA_DIST += testdsa.sh testdsa.bat
+-EXTRA_DIST += openssl.cnf
++EXTRA_DIST += libressl.cnf
+ 
+ # testenc
+ TESTS += testenc.sh
+diff -Nur libressl-2.5.5.orig/tests/Makefile.in libressl-2.5.5/tests/Makefile.in
+--- libressl-2.5.5.orig/tests/Makefile.in	2017-07-09 04:00:09.000000000 -0700
++++ libressl-2.5.5/tests/Makefile.in	2017-09-25 02:07:54.360971450 -0700
+@@ -1080,7 +1080,7 @@
+ 	ocsptest.bat pidwraptest.sh pq_test.sh pq_test.bat \
+ 	pq_expected.txt rfc5280time_small.test servertest.sh \
+ 	servertest.bat ssltest.sh ssltest.bat testssl testssl.bat \
+-	ca.pem server.pem testdsa.sh testdsa.bat openssl.cnf \
++	ca.pem server.pem testdsa.sh testdsa.bat libressl.cnf \
+ 	testenc.sh testenc.bat testrsa.sh testrsa.bat tlstest.sh \
+ 	tlstest.bat
+ DISTCLEANFILES = pidwraptest.txt
+diff -Nur libressl-2.5.5.orig/tests/openssl.cnf libressl-2.5.5/tests/openssl.cnf
+--- libressl-2.5.5.orig/tests/openssl.cnf	2017-07-05 20:08:51.000000000 -0700
++++ libressl-2.5.5/tests/openssl.cnf	1969-12-31 16:00:00.000000000 -0800
+@@ -1,29 +0,0 @@
+-#	$OpenBSD: openssl.cnf,v 1.1 2014/08/26 17:50:07 jsing Exp $
+-
+-#
+-# SSLeay example configuration file.
+-# This is mostly being used for generation of certificate requests.
+-#
+-# hacked by iang to do DSA certs - Server
+-
+-RANDFILE              = ./.rnd
+-
+-####################################################################
+-[ req ]
+-distinguished_name    = req_distinguished_name
+-encrypt_rsa_key               = no
+-
+-[ req_distinguished_name ]
+-countryName                   = Country Name (2 letter code)
+-countryName_default           = CA
+-countryName_value             = CA
+-
+-organizationName                = Organization Name (eg, company)
+-organizationName_value          = Shake it Vera 
+-
+-0.commonName                  = Common Name (eg, YOUR name)
+-0.commonName_value            = Wastelandus
+-
+-1.commonName                  = Common Name (eg, YOUR name)
+-1.commonName_value            = Maximus
+-
+diff -Nur libressl-2.5.5.orig/tests/testdsa.bat libressl-2.5.5/tests/testdsa.bat
+--- libressl-2.5.5.orig/tests/testdsa.bat	2017-07-05 20:18:20.000000000 -0700
++++ libressl-2.5.5/tests/testdsa.bat	2017-09-25 02:12:49.138098660 -0700
+@@ -20,7 +20,7 @@
+ 
+ 
+ REM # Generate a DSA certificate
+-%cmd% req -config %srcdir%\openssl.cnf -x509 -newkey dsa:dsa512.pem -out testdsa.pem -keyout testdsa.key
++%cmd% req -config %srcdir%\libressl.cnf -x509 -newkey dsa:dsa512.pem -out testdsa.pem -keyout testdsa.key
+ if !errorlevel! neq 0 (
+ 	exit /b 1
+ )
+diff -Nur libressl-2.5.5.orig/tests/testdsa.sh libressl-2.5.5/tests/testdsa.sh
+--- libressl-2.5.5.orig/tests/testdsa.sh	2017-07-05 20:08:51.000000000 -0700
++++ libressl-2.5.5/tests/testdsa.sh	2017-09-25 02:08:36.896106374 -0700
+@@ -28,7 +28,7 @@
+ 
+ 
+ # Denerate a DSA certificate
+-$cmd req -config $srcdir/openssl.cnf -x509 -newkey dsa:dsa512.pem -out testdsa.pem -keyout testdsa.key
++$cmd req -config $srcdir/libressl.cnf -x509 -newkey dsa:dsa512.pem -out testdsa.pem -keyout testdsa.key
+ if [ $? != 0 ]; then
+         exit 1;
+ fi
+diff -Nur libressl-2.5.5.orig/tests/testenc.bat libressl-2.5.5/tests/testenc.bat
+--- libressl-2.5.5.orig/tests/testenc.bat	2017-07-05 20:18:20.000000000 -0700
++++ libressl-2.5.5/tests/testenc.bat	2017-09-25 02:13:09.449711559 -0700
+@@ -8,7 +8,7 @@
+ 
+ set srcdir=..\..\tests
+ 
+-copy %srcdir%\openssl.cnf %test%
++copy %srcdir%\libressl.cnf %test%
+ 
+ echo cat
+ %cmd% enc -in %test% -out %test%.cipher
+diff -Nur libressl-2.5.5.orig/tests/testenc.sh libressl-2.5.5/tests/testenc.sh
+--- libressl-2.5.5.orig/tests/testenc.sh	2017-07-05 20:08:51.000000000 -0700
++++ libressl-2.5.5/tests/testenc.sh	2017-09-25 02:09:07.495484046 -0700
+@@ -18,7 +18,7 @@
+ 	srcdir=.
+ fi
+ 
+-cat $srcdir/openssl.cnf >$test;
++cat $srcdir/libressl.cnf >$test;
+ 
+ echo cat
+ $cmd enc < $test > $test.cipher
+diff -Nur libressl-2.5.5.orig/tests/testrsa.bat libressl-2.5.5/tests/testrsa.bat
+--- libressl-2.5.5.orig/tests/testrsa.bat	2017-07-05 20:18:20.000000000 -0700
++++ libressl-2.5.5/tests/testrsa.bat	2017-09-25 02:13:41.225105981 -0700
+@@ -20,7 +20,7 @@
+ 
+ 
+ REM # Generate an RSA certificate
+-%cmd% req -config %srcdir%\openssl.cnf -key rsakey.pem -new -x509 -days 365 -out rsacert.pem
++%cmd% req -config %srcdir%\libressl.cnf -key rsakey.pem -new -x509 -days 365 -out rsacert.pem
+ if !errorlevel! neq 0 (
+ 	exit /b 1
+ )
+diff -Nur libressl-2.5.5.orig/tests/testrsa.sh libressl-2.5.5/tests/testrsa.sh
+--- libressl-2.5.5.orig/tests/testrsa.sh	2017-07-05 20:08:51.000000000 -0700
++++ libressl-2.5.5/tests/testrsa.sh	2017-09-25 02:09:40.234818195 -0700
+@@ -28,7 +28,7 @@
+ 
+ 
+ # Generate an RSA certificate
+-$cmd req -config $srcdir/openssl.cnf -key rsakey.pem -new -x509 -days 365 -out rsacert.pem
++$cmd req -config $srcdir/libressl.cnf -key rsakey.pem -new -x509 -days 365 -out rsacert.pem
+ if [ $? != 0 ]; then
+         exit 1;
+ fi
